@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mini-Canva: Pro Workspace</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="h-screen w-screen overflow-hidden flex flex-col text-slate-800 font-sans" oncontextmenu="return false;">
+
+    <!-- Top Bar -->
+    <header class="h-14 border-b border-slate-200 bg-white flex items-center justify-between px-4 z-20 shrink-0 shadow-sm relative">
+        <div class="flex items-center gap-2">
+            <div class="w-8 h-8 bg-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-lg">C</div>
+            <h1 class="font-bold text-lg tracking-tight">Craf</h1>
+        </div>
+
+        <div class="absolute left-1/2 transform -translate-x-1/2 flex items-center gap-2 bg-slate-100 p-1 rounded-lg">
+            <button onclick="app.setTool('select')" class="tool-btn p-2 rounded hover:bg-white hover:shadow-sm transition-all active-tool text-purple-600" id="btn-select" title="Selection Tool (V)">
+                <i data-lucide="mouse-pointer-2" class="w-4 h-4"></i>
+            </button>
+            <button onclick="app.setTool('node')" class="tool-btn p-2 rounded hover:bg-white hover:shadow-sm transition-all text-slate-500" id="btn-node" title="Direct Selection (A)">
+                <i data-lucide="mouse-pointer-click" class="w-4 h-4"></i>
+            </button>
+            <div class="w-px h-5 bg-slate-300 mx-1"></div>
+            <button onclick="app.setTool('hand')" class="tool-btn p-2 rounded hover:bg-white hover:shadow-sm transition-all text-slate-500" id="btn-hand" title="Hand (H)">
+                <i data-lucide="hand" class="w-4 h-4"></i>
+            </button>
+        </div>
+
+        <div class="flex items-center gap-3">
+             <button onclick="app.autoFit()" class="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-md transition-colors">
+                <i data-lucide="maximize" class="w-4 h-4"></i>
+                Auto Fit
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <div class="flex-1 relative flex overflow-hidden">
+        <aside class="w-16 bg-white border-r border-slate-200 flex flex-col items-center py-4 gap-4 z-20 shrink-0 overflow-y-auto">
+            <button onclick="app.addArtboard()" class="flex flex-col items-center gap-1 group">
+                <div class="w-10 h-10 rounded-xl bg-slate-50 border border-slate-200 group-hover:bg-purple-50 group-hover:border-purple-200 flex items-center justify-center transition-colors"><i data-lucide="layout" class="w-5 h-5 text-slate-600 group-hover:text-purple-600"></i></div>
+                <span class="text-[10px] text-slate-500 font-medium">Artboard</span>
+            </button>
+             <button onclick="app.addRect()" class="flex flex-col items-center gap-1 group">
+                <div class="w-10 h-10 rounded-xl bg-slate-50 border border-slate-200 group-hover:bg-purple-50 group-hover:border-purple-200 flex items-center justify-center transition-colors"><i data-lucide="square" class="w-5 h-5 text-slate-600 group-hover:text-purple-600"></i></div>
+                <span class="text-[10px] text-slate-500 font-medium">Box</span>
+            </button>
+            <button onclick="app.addCircle()" class="flex flex-col items-center gap-1 group">
+                <div class="w-10 h-10 rounded-xl bg-slate-50 border border-slate-200 group-hover:bg-purple-50 group-hover:border-purple-200 flex items-center justify-center transition-colors"><i data-lucide="circle" class="w-5 h-5 text-slate-600 group-hover:text-purple-600"></i></div>
+                <span class="text-[10px] text-slate-500 font-medium">Circle</span>
+            </button>
+            <button onclick="app.addTriangle()" class="flex flex-col items-center gap-1 group">
+                <div class="w-10 h-10 rounded-xl bg-slate-50 border border-slate-200 group-hover:bg-purple-50 group-hover:border-purple-200 flex items-center justify-center transition-colors"><i data-lucide="triangle" class="w-5 h-5 text-slate-600 group-hover:text-purple-600"></i></div>
+                <span class="text-[10px] text-slate-500 font-medium">Triangle</span>
+            </button>
+            <div class="w-8 h-px bg-slate-200 my-1"></div>
+             <button onclick="app.addText('header')" class="flex flex-col items-center gap-1 group">
+                <div class="w-10 h-10 rounded-xl bg-slate-50 border border-slate-200 group-hover:bg-purple-50 group-hover:border-purple-200 flex items-center justify-center transition-colors"><i data-lucide="heading" class="w-5 h-5 text-slate-600 group-hover:text-purple-600"></i></div>
+                <span class="text-[10px] text-slate-500 font-medium">Header</span>
+            </button>
+             <button onclick="app.addText('paragraph')" class="flex flex-col items-center gap-1 group">
+                <div class="w-10 h-10 rounded-xl bg-slate-50 border border-slate-200 group-hover:bg-purple-50 group-hover:border-purple-200 flex items-center justify-center transition-colors"><i data-lucide="text" class="w-5 h-5 text-slate-600 group-hover:text-purple-600"></i></div>
+                <span class="text-[10px] text-slate-500 font-medium">Body</span>
+            </button>
+        </aside>
+
+        <div id="viewport" class="relative flex-1 overflow-hidden">
+            <div id="workspace">
+                <div id="gizmo-layer"></div>
+                <div id="guide-layer"></div>
+            </div>
+            <div id="marquee"></div>
+            <div class="absolute bottom-6 left-6 ui-panel px-4 py-2 rounded-full shadow-lg border border-white/20 flex items-center gap-4 z-30">
+                <span id="zoom-level" class="text-xs font-mono font-medium text-slate-600">100%</span>
+                <div class="flex gap-1">
+                    <button onclick="app.zoom(-0.1)" class="w-6 h-6 hover:bg-slate-200 rounded flex items-center justify-center"><i data-lucide="minus" class="w-3 h-3"></i></button>
+                    <button onclick="app.zoom(0.1)" class="w-6 h-6 hover:bg-slate-200 rounded flex items-center justify-center"><i data-lucide="plus" class="w-3 h-3"></i></button>
+                </div>
+            </div>
+        </div>
+
+        <aside class="w-64 bg-white border-l border-slate-200 flex flex-col z-20 shrink-0 overflow-hidden">
+            <div class="flex border-b border-slate-200">
+                <button onclick="app.switchTab('props')" id="tab-props" class="flex-1 py-3 text-xs font-semibold text-purple-600 border-b-2 border-purple-600 bg-purple-50 transition-colors">Properties</button>
+                <button onclick="app.switchTab('layers')" id="tab-layers" class="flex-1 py-3 text-xs font-semibold text-slate-500 hover:bg-slate-50 transition-colors">Layers</button>
+            </div>
+            <div id="panel-props" class="flex-1 overflow-y-auto">
+                <div class="p-4 border-b border-slate-100 flex items-center justify-between">
+                    <h2 class="font-semibold text-sm text-slate-800">Settings</h2>
+                    <span id="selection-count" class="text-[10px] bg-slate-100 px-2 py-0.5 rounded text-slate-500 hidden">0 selected</span>
+                </div>
+                <div id="prop-panel-content" class="p-0 flex flex-col">
+                    <div class="text-center py-10 text-slate-400 text-sm">Select an element to edit properties</div>
+                </div>
+            </div>
+            <div id="panel-layers" class="flex-1 overflow-y-auto hidden bg-slate-50">
+                <div id="layers-content" class="flex flex-col"></div>
+            </div>
+        </aside>
+    </div>
+
+    <div id="context-menu">
+        <div class="menu-item" onclick="app.copySelected()"><i data-lucide="copy" class="w-4 h-4 text-slate-400"></i> Copy <span class="menu-shortcut">Ctrl+C</span></div>
+        <div class="menu-item" onclick="app.paste()"><i data-lucide="clipboard" class="w-4 h-4 text-slate-400"></i> Paste <span class="menu-shortcut">Ctrl+V</span></div>
+        <div class="menu-item" onclick="app.duplicateSelected()"><i data-lucide="copy-plus" class="w-4 h-4 text-slate-400"></i> Duplicate <span class="menu-shortcut">Ctrl+D</span></div>
+        <div class="menu-separator"></div>
+        <div class="menu-item" onclick="app.groupSelected()"><i data-lucide="group" class="w-4 h-4 text-slate-400"></i> Group <span class="menu-shortcut">Ctrl+G</span></div>
+        <div class="menu-item" onclick="app.ungroupSelected()"><i data-lucide="ungroup" class="w-4 h-4 text-slate-400"></i> Ungroup <span class="menu-shortcut">Ctrl+Shift+G</span></div>
+        <div class="menu-separator"></div>
+        <div class="menu-item" onclick="app.arrange('front')"><i data-lucide="bring-to-front" class="w-4 h-4 text-slate-400"></i> Bring to Front <span class="menu-shortcut">]</span></div>
+        <div class="menu-item" onclick="app.arrange('back')"><i data-lucide="send-to-back" class="w-4 h-4 text-slate-400"></i> Send to Back <span class="menu-shortcut">[</span></div>
+        <div class="menu-separator"></div>
+        <div class="menu-item" onclick="app.lockSelected()"><i data-lucide="lock" class="w-4 h-4 text-slate-400"></i> Lock / Unlock <span class="menu-shortcut">Ctrl+L</span></div>
+        <div class="menu-item text-red-600" onclick="app.deleteSelected()"><i data-lucide="trash-2" class="w-4 h-4 text-red-400"></i> Delete <span class="menu-shortcut">Del</span></div>
+    </div>  
+    <script src="script.js"></script>
+</body>
+</html>
