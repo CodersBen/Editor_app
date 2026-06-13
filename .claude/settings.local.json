@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(try { \\(Get-Command python -ErrorAction Stop\\).Source } catch { \"no python\" }; try { \\(Get-Command npx -ErrorAction Stop\\).Source } catch { \"no npx\" })",
+      "PowerShell(node --check \"E:\\\\Codes\\\\create_app\\\\js\\\\editor.js\")",
+      "PowerShell(node --check \"E:\\\\Codes\\\\create_app\\\\js\\\\vector.js\")",
+      "PowerShell(node --check \"E:\\\\Codes\\\\create_app\\\\js\\\\panels.js\")",
+      "PowerShell(node --check \"E:\\\\Codes\\\\create_app\\\\js\\\\typography.js\")"
+    ]
+  }
+}

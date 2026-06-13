@@ -188,19 +188,27 @@ Object.assign(MiniCanva.prototype, {
     },
 
     // --- Magnetic snapping ---------------------------------------------------------
-    // Snaps the primary dragged element's edges/center to guides, the active
-    // grid, and artboard edges & margins.
+    // Snaps the dragged selection's union AABB (edges + centers) to guides,
+    // other objects' edges & centers (smart guides), the active grid, and
+    // artboard edges & margins.
     applyDragSnap(dx, dy) {
         if (!this.snapEnabled || this.startState.elements.length === 0) return { dx, dy };
-        const primary = this.elements.find(x => x.id === this.startState.elements[0].id);
-        if (!primary) return { dx, dy };
-        const start = this.startState.elements[0];
-        const ab = this.artboards.find(a => a.id === primary.parentId);
-        const offX = ab ? ab.x : 0, offY = ab ? ab.y : 0;
 
-        const gx = offX + start.x + dx, gy = offY + start.y + dy;
-        const candX = [gx, gx + primary.w / 2, gx + primary.w];
-        const candY = [gy, gy + primary.h / 2, gy + primary.h];
+        // Proposed union AABB of everything being dragged, at this delta.
+        const draggedIds = new Set(this.startState.elements.map(it => it.id));
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        this.startState.elements.forEach(item => {
+            const el = this.elements.find(x => x.id === item.id);
+            if (!el) return;
+            const origin = this.parentGlobalOrigin(el.parentId);
+            const b = this.rectAABB(origin.x + item.x + dx, origin.y + item.y + dy, el.w, el.h, el.rotation || 0);
+            minX = Math.min(minX, b.left); minY = Math.min(minY, b.top);
+            maxX = Math.max(maxX, b.left + b.width); maxY = Math.max(maxY, b.top + b.height);
+        });
+        if (!Number.isFinite(minX)) return { dx, dy };
+        const candX = [minX, (minX + maxX) / 2, maxX];
+        const candY = [minY, (minY + maxY) / 2, maxY];
+        const gx = minX, gy = minY;
 
         const targetsX = this.guides.filter(g => g.axis === 'v').map(g => g.pos);
         const targetsY = this.guides.filter(g => g.axis === 'h').map(g => g.pos);
@@ -211,6 +219,16 @@ Object.assign(MiniCanva.prototype, {
                 targetsX.push(a.x + a.marginLeft, a.x + a.w - a.marginRight);
                 targetsY.push(a.y + a.marginTop, a.y + a.h - a.marginBottom);
             }
+        });
+        // Other objects: edges and centers of every visible top-level element
+        // not taking part in the drag.
+        this.elements.forEach(el => {
+            if (draggedIds.has(el.id) || el.visible === false) return;
+            const pid = el.parentId;
+            if (pid !== 'workspace' && !(pid && pid.startsWith('ab_'))) return;
+            const b = this.worldAABB(el);
+            targetsX.push(b.left, b.left + b.width / 2, b.left + b.width);
+            targetsY.push(b.top, b.top + b.height / 2, b.top + b.height);
         });
 
         const th = this.snapThreshold / this.scale;
@@ -249,8 +267,8 @@ Object.assign(MiniCanva.prototype, {
     showSnapFlash(axis, pos) {
         const f = document.createElement('div');
         f.className = 'snap-flash';
-        if (axis === 'v') Object.assign(f.style, { left: pos + 'px', top: '-50000px', width: 1 / this.scale + 'px', height: '100000px' });
-        else Object.assign(f.style, { top: pos + 'px', left: '-50000px', height: 1 / this.scale + 'px', width: '100000px' });
+        if (axis === 'v') Object.assign(f.style, { left: pos + 'px', top: '-1000000px', width: 1 / this.scale + 'px', height: '2000000px' });
+        else Object.assign(f.style, { top: pos + 'px', left: '-1000000px', height: 1 / this.scale + 'px', width: '2000000px' });
         this.guideLayer.appendChild(f);
     },
 

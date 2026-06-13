@@ -44,6 +44,8 @@
             </div>
 
             <div class="row" style="gap:6px;">
+                <button class="topbar-btn" onclick="app.undo()" title="Undo (Ctrl+Z)"><i data-lucide="undo-2" style="width:14px;height:14px;"></i></button>
+                <button class="topbar-btn" onclick="app.redo()" title="Redo (Ctrl+Shift+Z)"><i data-lucide="redo-2" style="width:14px;height:14px;"></i></button>
                 <select id="grid-mode" onchange="app.setGridMode(this.value)" title="Drafting grid">
                     <option value="none">No Grid</option>
                     <option value="square">Square Grid</option>
@@ -131,6 +133,9 @@
 
     <!-- Context menu -->
     <div id="context-menu">
+        <div class="menu-item" onclick="app.undo()"><i data-lucide="undo-2"></i> Undo <span class="menu-shortcut">Ctrl+Z</span></div>
+        <div class="menu-item" onclick="app.redo()"><i data-lucide="redo-2"></i> Redo <span class="menu-shortcut">Ctrl+Shift+Z</span></div>
+        <div class="menu-separator"></div>
         <div class="menu-item" onclick="app.copySelected()"><i data-lucide="copy"></i> Copy <span class="menu-shortcut">Ctrl+C</span></div>
         <div class="menu-item" onclick="app.paste()"><i data-lucide="clipboard"></i> Paste <span class="menu-shortcut">Ctrl+V</span></div>
         <div class="menu-item" onclick="app.duplicateSelected()"><i data-lucide="copy-plus"></i> Duplicate <span class="menu-shortcut">Ctrl+D</span></div>
@@ -138,6 +143,7 @@
         <div class="menu-item" onclick="app.addSelectionToAssets()"><i data-lucide="component"></i> Add to Assets</div>
         <div class="menu-item" onclick="app.updateLinkedAssetFromSelection()"><i data-lucide="refresh-cw"></i> Update Linked Asset</div>
         <div class="menu-item" onclick="app.resetAppearanceSelected()"><i data-lucide="rotate-ccw"></i> Reset Appearance</div>
+        <div class="menu-item" onclick="app.convertSelectedToPaths()"><i data-lucide="workflow"></i> Convert Shape to Editable Path</div>
         <div class="menu-separator"></div>
         <div class="menu-item" onclick="app.groupSelected()"><i data-lucide="group"></i> Group <span class="menu-shortcut">Ctrl+G</span></div>
         <div class="menu-item" onclick="app.ungroupSelected()"><i data-lucide="ungroup"></i> Ungroup <span class="menu-shortcut">Ctrl+Shift+G</span></div>
@@ -170,11 +176,13 @@
                 <select id="np-preset" onchange="app.applyNewProjectPreset(this.value)">
                     <option value="custom">Custom</option>
                     <option value="iphone">iPhone 15 / Story — 1179 × 2556 px</option>
+                    <option value="android">Android Phone — 1080 × 2400 px</option>
                     <option value="instagram-post">Instagram Post — 1080 × 1080 px</option>
                     <option value="instagram-story">Instagram Story — 1080 × 1920 px</option>
                     <option value="youtube-thumb">YouTube Thumbnail — 1280 × 720 px</option>
                     <option value="a4">A4 Poster — 210 × 297 mm</option>
                     <option value="letter">US Letter — 8.5 × 11 in</option>
+                    <option value="legal">US Legal — 8.5 × 14 in</option>
                 </select>
             </div>
             <div class="grid-2">
@@ -186,8 +194,22 @@
                 <div class="details-content">
                     <div class="grid-2">
                         <div><label class="f-label">Color mode</label><select id="np-color-mode"><option value="rgb">RGB</option><option value="cmyk">CMYK intent</option></select></div>
-                        <div><label class="f-label">Unit</label><select id="np-unit"><option value="px">Pixels</option><option value="mm">Millimeters</option><option value="in">Inches</option></select></div>
-                        <div><label class="f-label">Resolution</label><input id="np-resolution" type="number" min="1" value="144"></div>
+                        <div><label class="f-label">Unit</label><select id="np-unit">
+                            <option value="px">Pixels</option>
+                            <option value="in">Inches</option>
+                            <option value="mm">Millimeters</option>
+                            <option value="cm">Centimeters</option>
+                            <option value="m">Meters</option>
+                            <option value="ft">Feet</option>
+                            <option value="yd">Yards</option>
+                            <option value="pt">Points</option>
+                            <option value="pc">Picas</option>
+                        </select></div>
+                        <div><label class="f-label">Resolution PPI</label><input id="np-resolution" type="number" min="1" value="144" list="ppi-presets"></div>
+                        <datalist id="ppi-presets">
+                            <option value="72"></option><option value="96"></option>
+                            <option value="144"></option><option value="300"></option>
+                        </datalist>
                         <div><label class="f-label">Background</label><input id="np-bg" type="color" value="#ffffff"></div>
                     </div>
                 </div>

@@ -136,12 +136,34 @@ Object.assign(MiniCanva.prototype, {
             ${linked ? `<button class="asset-wide-btn" onclick="app.updateLinkedAssetFromSelection()">Update “${this.escapeHtml(this.designAssets.find(a => a.id === linked.assetId)?.name || 'Asset')}” from selection</button>` : ''}
             ${assets.length ? `<div class="asset-library-grid">
                 ${assets.map(a => `
-                    <div class="asset-library-card" title="Click to place. Double-click to edit master." onclick="app.addAssetInstance('${a.id}')" ondblclick="event.stopPropagation(); app.openAssetEditor('${a.id}')">
+                    <div class="asset-library-card" title="Click to place. Double-click to edit master. Right-click for actions." onclick="app.addAssetInstance('${a.id}')" ondblclick="event.stopPropagation(); app.openAssetEditor('${a.id}')" oncontextmenu="app.showAssetContextMenu(event, '${a.id}')">
                         <div class="asset-thumb">${this.escapeHtml(a.name.slice(0, 1).toUpperCase())}</div>
                         <div class="asset-meta">${this.escapeHtml(a.name)}</div>
                     </div>`).join('')}
             </div>` : `<div class="muted" style="padding:0 12px 10px;">Right-click selected artwork and choose Add to Assets.</div>`}
         `;
+    },
+
+    showAssetContextMenu(event, assetId) {
+        event.preventDefault();
+        event.stopPropagation();
+        document.getElementById('asset-context-menu')?.remove();
+        const menu = document.createElement('div');
+        menu.id = 'asset-context-menu';
+        menu.className = 'floating-menu';
+        menu.innerHTML = `
+            <div class="menu-item" onclick="app.addAssetInstance('${assetId}'); app.hideAssetContextMenu();"><i data-lucide="plus-square"></i> Add to Active Artboard</div>
+            <div class="menu-item" onclick="app.openAssetEditor('${assetId}'); app.hideAssetContextMenu();"><i data-lucide="external-link"></i> Open / Edit Asset</div>
+        `;
+        document.body.appendChild(menu);
+        menu.style.left = Math.min(event.clientX, window.innerWidth - 220) + 'px';
+        menu.style.top = Math.min(event.clientY, window.innerHeight - 90) + 'px';
+        setTimeout(() => document.addEventListener('click', this.hideAssetContextMenu, { once: true }), 0);
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    },
+
+    hideAssetContextMenu() {
+        document.getElementById('asset-context-menu')?.remove();
     },
 
     cloneAssetElements(asset, parentId, offsetX = 0, offsetY = 0) {
@@ -247,6 +269,7 @@ Object.assign(MiniCanva.prototype, {
         this.autoFit();
         this.renderLayersPanel();
         this.updatePropPanel();
+        this.resetHistory();
     },
 
     commitAssetEditor() {

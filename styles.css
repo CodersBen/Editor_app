@@ -221,7 +221,10 @@ label.f-label { font-size: 9px; color: var(--text-3); text-transform: uppercase;
     transform-origin: 0 0;
     position: absolute;
     top: 0; left: 0;
-    will-change: transform;
+    /* No will-change here: that hint freezes the layer's raster at 1x and
+       bitmap-scales it, blurring text and vectors at zoom. Without it the
+       browser re-rasterizes at the current scale, keeping everything sharp. */
+    --inv-zoom: 1; /* set from JS to 1/scale; counter-scales gizmo chrome */
 }
 
 .zoom-pill {
@@ -241,13 +244,16 @@ label.f-label { font-size: 9px; color: var(--text-3); text-transform: uppercase;
     background: #ffffff;
     box-shadow: 0 0 0 1px rgba(0,0,0,0.55), 0 14px 40px rgba(0,0,0,0.45);
     position: absolute;
-    overflow: hidden;
+    overflow: hidden; /* frames clip their content, like Figma's "Clip content" */
 }
 .artboard.active { box-shadow: 0 0 0 1.5px var(--accent), 0 14px 40px rgba(0,0,0,0.5); }
+/* Label lives in the workspace (not inside the artboard) so clipping can't hide it. */
 .artboard-label {
-    position: absolute; top: -22px; left: 0;
+    position: absolute;
+    transform: translateY(calc(-100% - 6px));
     font-size: 12px; color: var(--text-2); font-weight: 500;
-    pointer-events: none; white-space: nowrap;
+    pointer-events: auto; white-space: nowrap; cursor: move;
+    z-index: 20;
 }
 
 .margin-guide { position: absolute; pointer-events: none; z-index: 50; display: none; }
@@ -262,12 +268,39 @@ label.f-label { font-size: 9px; color: var(--text-3); text-transform: uppercase;
     transform-origin: center center;
     cursor: grab;
     line-height: 1.2;
+    /* Explicit because pointer-events inherits: children inside a
+       pointer-events:none group must re-enable themselves. */
+    pointer-events: auto;
 }
-.element.locked { pointer-events: none; }
+.element.locked, .element.locked * { pointer-events: none !important; }
 .element svg { display: block; overflow: visible; width: 100%; height: 100%; }
+/* Geometry-accurate selection: vector objects only respond on their painted
+   fill/stroke — transparent areas of the bounding box pass clicks through.
+   Text and images keep their full frame for easy selection. */
+.element[data-type="path"], .element[data-type="bool"] { pointer-events: none; }
+.element[data-type="path"] svg *, .element[data-type="bool"] svg * { pointer-events: auto; }
 .element, .element svg, .element svg * {
     text-rendering: geometricPrecision;
     shape-rendering: geometricPrecision;
+}
+.element[data-type="text"] {
+    background: transparent;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: geometricPrecision;
+}
+.text-vector {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    pointer-events: none;
+    text-rendering: geometricPrecision;
+    shape-rendering: geometricPrecision;
+}
+.text-vector text {
+    text-shadow: none;
+    paint-order: stroke fill;
+    vector-effect: non-scaling-stroke;
 }
 .element .asset-image {
     width: 100%;
@@ -276,29 +309,35 @@ label.f-label { font-size: 9px; color: var(--text-3); text-transform: uppercase;
     display: block;
     pointer-events: none;
 }
-.element[data-type="group"] { border: 1px dashed transparent; pointer-events: auto; }
-.element[data-type="group"]:hover { border-color: rgba(139, 92, 246, 0.45); }
+/* Empty areas of a group don't capture clicks; its children explicitly
+   re-enable pointer events, and clicks resolve up to the group. */
+.element[data-type="group"] { border: 1px dashed transparent; pointer-events: none; }
 .element.selected[data-type="group"] { border: 1px solid var(--selection-color); }
-.text-inner { display: inline-block; }
+.text-inner { display: inline-block; -webkit-font-smoothing: antialiased; text-rendering: geometricPrecision; }
 .warp-char { display: inline-block; white-space: pre; }
 .curved-char { position: absolute; left: 50%; top: 50%; transform-origin: center; white-space: pre; }
 
-/* ---------- Gizmo / handles ---------- */
+/* ---------- Gizmo / handles ----------
+   All gizmo chrome counter-scales against the workspace zoom (--inv-zoom is
+   1/scale), so handles and selection borders keep a constant screen size and
+   stay grabbable at any zoom level. Handles are centered on their anchor
+   point via translate(-50%,-50%), so the counter-scale pivots in place. */
 #gizmo-layer { position: absolute; top: 0; left: 0; width: 0; height: 0; pointer-events: none; z-index: 999; }
-.gizmo { position: absolute; border: 1.5px solid var(--selection-color); pointer-events: none; transform-origin: center center; }
+.gizmo { position: absolute; border: calc(1.5px * var(--inv-zoom, 1)) solid var(--selection-color); pointer-events: none; transform-origin: center center; }
 .handle {
     position: absolute;
     width: var(--handle-size); height: var(--handle-size);
     background: var(--bg-1);
     border: 1.5px solid var(--selection-color);
     pointer-events: auto; z-index: 1000;
+    transform: translate(-50%, -50%) scale(var(--inv-zoom, 1));
 }
 .handle-vertex {
     position: absolute; width: 11px; height: 11px;
     background: var(--vertex-color); border: 2px solid #fff;
     pointer-events: auto; z-index: 1001; cursor: move;
     box-shadow: 0 2px 4px rgba(0,0,0,0.4);
-    transform: translate(-50%, -50%);
+    transform: translate(-50%, -50%) scale(var(--inv-zoom, 1));
 }
 .handle-vertex.selected-vertex { background: var(--accent); }
 .handle-bezier {
@@ -306,14 +345,44 @@ label.f-label { font-size: 9px; color: var(--text-3); text-transform: uppercase;
     background: #fff; border: 1.5px solid var(--vertex-color);
     border-radius: 50%;
     pointer-events: auto; z-index: 1002; cursor: move;
-    transform: translate(-50%, -50%);
+    transform: translate(-50%, -50%) scale(var(--inv-zoom, 1));
 }
-.bezier-arm { position: absolute; height: 0; border-top: 1px solid var(--vertex-color); transform-origin: 0 0; pointer-events: none; z-index: 1000; opacity: 0.8; }
-.handle-rot { top: -26px; left: 50%; transform: translateX(-50%); border-radius: 50%; cursor: alias; }
-.handle-rot-connector { position: absolute; top: -20px; left: 50%; width: 0; height: 20px; border-left: 1px solid var(--selection-color); }
-.handle-tl { top: -6px; left: -6px; } .handle-tc { top: -6px; left: 50%; margin-left: -5px; } .handle-tr { top: -6px; right: -6px; }
-.handle-ml { top: 50%; left: -6px; margin-top: -5px; } .handle-mr { top: 50%; right: -6px; margin-top: -5px; }
-.handle-bl { bottom: -6px; left: -6px; } .handle-bc { bottom: -6px; left: 50%; margin-left: -5px; } .handle-br { bottom: -6px; right: -6px; }
+.bezier-arm { position: absolute; height: 0; border-top: calc(1px * var(--inv-zoom, 1)) solid var(--vertex-color); transform-origin: 0 0; pointer-events: none; z-index: 1000; opacity: 0.8; }
+.handle-radius {
+    position: absolute; width: 9px; height: 9px;
+    background: #fff; border: 1.5px solid var(--accent);
+    border-radius: 50%;
+    pointer-events: auto; z-index: 1003; cursor: pointer;
+    transform: translate(-50%, -50%) scale(var(--inv-zoom, 1));
+}
+.handle-radius:hover { background: var(--accent); }
+.handle-rot { top: calc(-26px * var(--inv-zoom, 1)); left: 50%; border-radius: 50%; cursor: alias; }
+.handle-rot-connector { position: absolute; top: calc(-20px * var(--inv-zoom, 1)); left: 50%; width: 0; height: calc(20px * var(--inv-zoom, 1)); border-left: calc(1px * var(--inv-zoom, 1)) solid var(--selection-color); }
+.handle-rot-corner { border-radius: 50%; cursor: alias; background: var(--accent); border-color: #fff; }
+.handle-rot-tl { top: calc(-14px * var(--inv-zoom, 1)); left: calc(-14px * var(--inv-zoom, 1)); }
+.handle-rot-tr { top: calc(-14px * var(--inv-zoom, 1)); left: calc(100% + 14px * var(--inv-zoom, 1)); }
+.handle-rot-bl { top: calc(100% + 14px * var(--inv-zoom, 1)); left: calc(-14px * var(--inv-zoom, 1)); }
+.handle-rot-br { top: calc(100% + 14px * var(--inv-zoom, 1)); left: calc(100% + 14px * var(--inv-zoom, 1)); }
+.handle-tl { top: 0; left: 0; } .handle-tc { top: 0; left: 50%; } .handle-tr { top: 0; left: 100%; }
+.handle-ml { top: 50%; left: 0; } .handle-mr { top: 50%; left: 100%; }
+.handle-bl { top: 100%; left: 0; } .handle-bc { top: 100%; left: 50%; } .handle-br { top: 100%; left: 100%; }
+
+/* Live measurement HUD: W × H while drawing/resizing, angle while rotating,
+   radius while editing corners. Screen-space, never scales with zoom. */
+#size-hud {
+    position: fixed;
+    background: var(--bg-1);
+    border: 1px solid var(--accent);
+    color: var(--text-1);
+    font-family: ui-monospace, monospace;
+    font-size: 11px;
+    padding: 3px 8px;
+    pointer-events: none;
+    white-space: nowrap;
+    z-index: 10050;
+    display: none;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.4);
+}
 
 #marquee {
     position: fixed;
@@ -325,8 +394,8 @@ label.f-label { font-size: 9px; color: var(--text-3); text-transform: uppercase;
 /* ---------- Guides ---------- */
 #guide-layer { position: absolute; top: 0; left: 0; width: 0; height: 0; z-index: 900; }
 .guide-line { position: absolute; z-index: 901; }
-.guide-line.v { width: 9px; margin-left: -4px; cursor: col-resize; top: -50000px; height: 100000px; }
-.guide-line.h { height: 9px; margin-top: -4px; cursor: row-resize; left: -50000px; width: 100000px; }
+.guide-line.v { width: 9px; margin-left: -4px; cursor: col-resize; top: -1000000px; height: 2000000px; }
+.guide-line.h { height: 9px; margin-top: -4px; cursor: row-resize; left: -1000000px; width: 2000000px; }
 .guide-line::after { content: ''; position: absolute; background: var(--guide-color); opacity: 0.85; }
 .guide-line.v::after { left: 4px; top: 0; width: 1px; height: 100%; }
 .guide-line.h::after { top: 4px; left: 0; height: 1px; width: 100%; }
@@ -474,6 +543,16 @@ details > summary > * { margin-left: auto; margin-right: 8px; }
     min-width: 200px;
     z-index: 10000;
     display: none;
+}
+
+.floating-menu {
+    position: fixed;
+    background: var(--bg-1);
+    border: 1px solid var(--border-strong);
+    box-shadow: 0 14px 36px rgba(0,0,0,0.55);
+    padding: 4px 0;
+    min-width: 210px;
+    z-index: 10001;
 }
 
 #asset-editor-banner {

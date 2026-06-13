@@ -25,7 +25,10 @@ Object.assign(MiniCanva.prototype, {
     clearWorkspace(options = {}) {
         this.setSelection([]);
         this.elements.forEach(el => document.getElementById(el.id)?.remove());
-        this.artboards.forEach(ab => document.getElementById(ab.id)?.remove());
+        this.artboards.forEach(ab => {
+            document.getElementById(ab.id)?.remove();
+            document.getElementById(ab.id + '_label')?.remove();
+        });
         this.artboards = [];
         this.elements = [];
         this.guides = [];
@@ -69,6 +72,7 @@ Object.assign(MiniCanva.prototype, {
         this.renderLayersPanel();
         this.updatePropPanel();
         this.renderAssetLibrary();
+        this.resetHistory();
     },
 
     // --- View switching ----------------------------------------------------------
@@ -209,19 +213,28 @@ Object.assign(MiniCanva.prototype, {
         return {
             custom: { w: 1080, h: 1080, unit: 'px', resolution: 144, colorMode: 'rgb' },
             iphone: { w: 1179, h: 2556, unit: 'px', resolution: 144, colorMode: 'rgb' },
+            android: { w: 1080, h: 2400, unit: 'px', resolution: 144, colorMode: 'rgb' },
             'instagram-post': { w: 1080, h: 1080, unit: 'px', resolution: 144, colorMode: 'rgb' },
             'instagram-story': { w: 1080, h: 1920, unit: 'px', resolution: 144, colorMode: 'rgb' },
             'youtube-thumb': { w: 1280, h: 720, unit: 'px', resolution: 72, colorMode: 'rgb' },
             a4: { w: 210, h: 297, unit: 'mm', resolution: 300, colorMode: 'cmyk' },
-            letter: { w: 8.5, h: 11, unit: 'in', resolution: 300, colorMode: 'cmyk' }
+            letter: { w: 8.5, h: 11, unit: 'in', resolution: 300, colorMode: 'cmyk' },
+            legal: { w: 8.5, h: 14, unit: 'in', resolution: 300, colorMode: 'cmyk' }
+        };
+    },
+
+    presetLabels() {
+        return {
+            custom: 'Custom', iphone: 'iPhone 15', android: 'Android',
+            'instagram-post': 'Instagram Post', 'instagram-story': 'Instagram Story',
+            'youtube-thumb': 'YouTube Thumbnail', a4: 'A4', letter: 'US Letter', legal: 'US Legal'
         };
     },
 
     unitToPixels(value, unit, resolution) {
         const n = parseFloat(value) || 1;
-        if (unit === 'mm') return Math.round(n / 25.4 * resolution);
-        if (unit === 'in') return Math.round(n * resolution);
-        return Math.round(n);
+        const f = this.unitFactor(unit);
+        return Math.round(f ? n * f * resolution : n);
     },
 
     applyNewProjectPreset(key) {

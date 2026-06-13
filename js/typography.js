@@ -4,16 +4,22 @@ Object.assign(MiniCanva.prototype, {
 
     renderTextVisuals(dom, data) {
         let inner = dom.querySelector('.text-inner');
+        let vector = dom.querySelector('.text-vector');
         if (!inner) {
             inner = document.createElement('span');
             inner.className = 'text-inner';
-            dom.innerHTML = '';
             dom.appendChild(inner);
+        }
+        if (!vector) {
+            vector = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            vector.classList.add('text-vector');
+            vector.setAttribute('aria-hidden', 'true');
+            dom.appendChild(vector);
         }
 
         dom.style.fontSize = data.fontSize + 'px';
         dom.style.fontWeight = data.fontWeight;
-        dom.style.color = data.color;
+        dom.style.color = data.fillEnabled === false ? 'transparent' : data.color;
         dom.style.minWidth = '';
         dom.style.minHeight = '';
 
@@ -37,17 +43,74 @@ Object.assign(MiniCanva.prototype, {
         const warp = data.warp || { mode: 'none', amount: 0 };
 
         if (radius !== 0 && data.text) {
+            vector.style.display = 'none';
+            inner.style.display = 'inline-block';
             this.renderTypeOnPath(dom, inner, data, radius);
         } else if (warp.mode !== 'none' && data.text) {
+            vector.style.display = 'none';
+            inner.style.display = 'inline-block';
             this.renderWarpedText(inner, data, warp);
             dom.style.whiteSpace = 'nowrap';
         } else {
-            inner.textContent = data.text;
+            inner.style.display = 'none';
+            vector.style.display = 'block';
+            this.renderVectorText(vector, data);
             dom.style.whiteSpace = 'nowrap';
             dom.style.display = 'flex';
             dom.style.alignItems = 'center';
             dom.style.justifyContent = 'center';
         }
+    },
+
+    renderVectorText(svg, data) {
+        const width = Math.max(1, data.w || 1);
+        const height = Math.max(1, data.h || 1);
+        const size = Math.max(1, data.fontSize || 16);
+        const spacing = ((data.tracking || 0) + (data.kerning || 0)) / 1000 * size;
+        const features = data.features || {};
+        svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+        svg.setAttribute('width', '100%');
+        svg.setAttribute('height', '100%');
+        svg.setAttribute('preserveAspectRatio', 'none');
+        svg.innerHTML = '';
+
+        const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        text.setAttribute('x', width / 2);
+        text.setAttribute('y', height / 2 + (data.baselineShift ? -data.baselineShift : 0));
+        text.setAttribute('fill', data.fillEnabled === false ? 'none' : (data.color || '#0f172a'));
+        text.setAttribute('font-size', size);
+        text.setAttribute('font-weight', data.fontWeight || '400');
+        text.setAttribute('font-family', data.fontFamily || 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif');
+        text.setAttribute('text-anchor', 'middle');
+        text.setAttribute('dominant-baseline', 'middle');
+        text.setAttribute('letter-spacing', spacing ? spacing + 'px' : '0');
+        text.setAttribute('font-kerning', 'normal');
+        text.setAttribute('font-feature-settings', `"liga" ${features.liga ? 1 : 0}, "dlig" ${features.dlig ? 1 : 0}, "swsh" ${features.swsh ? 1 : 0}`);
+        text.textContent = data.text || '';
+        svg.appendChild(text);
+        this.applyVectorTextAppearance(svg, text, data);
+    },
+
+    applyVectorTextAppearance(svg, text, data) {
+        const a = data.appearance || { strokes: [], shadows: [], extrudes: [] };
+        const strokes = (a.strokes || []).filter(s => (s.width || 0) > 0);
+        const shadows = (a.shadows || []);
+
+        text.removeAttribute('stroke');
+        text.removeAttribute('stroke-width');
+        text.removeAttribute('paint-order');
+
+        if (strokes.length) {
+            const first = strokes[0];
+            text.setAttribute('stroke', first.color || '#111111');
+            text.setAttribute('stroke-width', first.align === 'outside' ? (first.width || 0) * 2 : (first.width || 0));
+            text.setAttribute('paint-order', first.align === 'inside' ? 'fill stroke' : 'stroke fill');
+        }
+
+        const filterParts = shadows.map(s => `drop-shadow(${s.x || 0}px ${s.y || 0}px ${Math.max(0, s.blur || 0)}px ${s.color})`);
+        svg.style.filter = filterParts.join(' ') || 'none';
+        svg.style.textShadow = 'none';
+        text.style.textShadow = 'none';
     },
 
     // Appearance stack for live text: first stroke via text-stroke, additional
@@ -149,12 +212,32 @@ Object.assign(MiniCanva.prototype, {
         if (!e || (e.curveRadius && e.curveRadius !== 0)) return;
         const d = document.getElementById(id);
         if (!d) return;
-        d.style.width = 'max-content';
-        d.style.height = 'auto';
         const pad = e.warp && e.warp.mode !== 'none' ? Math.abs(e.warp.amount || 0) : 0;
-        e.w = d.offsetWidth + 2;
-        e.h = d.offsetHeight + pad * 2;
+        if (!e.warp || e.warp.mode === 'none') {
+            const size = this.measureTextElement(e);
+            e.w = size.w;
+            e.h = size.h;
+        } else {
+            d.style.width = 'max-content';
+            d.style.height = 'auto';
+            e.w = d.offsetWidth + 2;
+            e.h = d.offsetHeight + pad * 2;
+        }
         d.style.width = e.w + 'px';
         d.style.height = e.h + 'px';
+    },
+
+    measureTextElement(data) {
+        if (!this._measureCanvas) this._measureCanvas = document.createElement('canvas');
+        const ctx = this._measureCanvas.getContext('2d');
+        const size = Math.max(1, data.fontSize || 16);
+        const weight = data.fontWeight || '400';
+        const family = data.fontFamily || 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+        ctx.font = `${weight} ${size}px ${family}`;
+        const spacing = ((data.tracking || 0) + (data.kerning || 0)) / 1000 * size;
+        const text = data.text || '';
+        const width = Math.ceil(ctx.measureText(text).width + Math.max(0, text.length - 1) * spacing + 8);
+        const lineHeight = data.leading ? data.leading : size * 1.2;
+        return { w: Math.max(1, width), h: Math.max(1, Math.ceil(lineHeight + Math.abs(data.baselineShift || 0) + 4)) };
     }
 });
